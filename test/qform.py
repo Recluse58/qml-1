@@ -5,7 +5,7 @@ from fractions import Fraction
 import decimal
 from decimal import Decimal
 from types import NoneType
-
+import sympy
 
 decimal.getcontext().prec = 50
 
@@ -21,7 +21,7 @@ def qform(self, preserve = False):
     #     `-------- needs brackets as left argument
 
     # gathers:
-    #   *             -> "a"/"A"
+    #   *             -> "s"/"S"
     #   ["i"/"j"/"f"] -> "v"
     #   [*]           -> "v"/"V"
 
@@ -49,13 +49,19 @@ def qform(self, preserve = False):
                 return str(n), "j"
             return number_form(Decimal(n))
 
-        if isinstance(n, Fraction):
-            if n.denominator == 1:
-                return number_form(n.numerator)
-            forms, types = zip(*map(number_form, (n.numerator, n.denominator)))
-            if all([t in ("i", "j") for t in types]):
+        def ratio(p, q):
+            if q == 1:
+                return number_form(p)
+            forms, types = zip(*map(number_form, (p, q)))
+            if all([t in ("i", "j") for t in types]) and q not in (2, 4):
                 return "%".join(map(encode_item, forms, types)), "S"
-            return number_form(n.numerator / Decimal(n.denominator))
+            return number_form(p / Decimal(q))
+
+        if isinstance(n, Fraction):
+            return ratio(n.numerator, n.denominator)
+
+        if isinstance(n, sympy.Rational):
+            return ratio(n.p, n.q)
 
         if isinstance(n, Decimal):
             q = abs(n).log10().quantize(1, rounding=decimal.ROUND_FLOOR)
@@ -132,7 +138,8 @@ def qform(self, preserve = False):
         return q, "v"
 
     def value_form(self):
-        if isinstance(self, (int, long, Fraction, Decimal, NoneType)):
+        if isinstance(self, (int, long, Fraction, sympy.Rational, Decimal,
+                             NoneType)):
             return number_form(self)
         if isinstance(self, (list, tuple)):
             return list_form(self)
